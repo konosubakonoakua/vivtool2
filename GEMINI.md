@@ -30,7 +30,13 @@ The project is structured as a single Visual Studio solution containing the `viv
 2. Select `Debug` or `Release` configuration and `x64` platform.
 3. Build Solution (F7).
 
-**Command Line (MSBuild):**
+**PowerShell Script (Recommended):**
+```powershell
+.\build.ps1 [Debug|Release]
+```
+By default, it builds the `Release` configuration for `x64`.
+
+**Manual Command Line (MSBuild):**
 ```batch
 msbuild vivlauncher\vivlauncher.vcxproj /p:Configuration=Release /p:Platform=x64
 ```
