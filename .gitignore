@@ -1,0 +1,12 @@
+# Build output
+vivlauncher/x64/
+vivlauncher/.vs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+*.swp
+*.swo
+*~
