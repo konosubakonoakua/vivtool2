@@ -102,8 +102,12 @@ INT_PTR CALLBACK SelectorDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
         case VK_RETURN:
         case VK_SPACE:
         {
-            int idx = (int)SendMessageW(hList, LB_GETCURSEL, 0, 0);
-            if (idx >= 0) EndDialog(hDlg, idx + 1);
+            int selIdx = (int)SendMessageW(hList, LB_GETCURSEL, 0, 0);
+            if (selIdx >= 0)
+            {
+                int origIdx = (int)SendMessageW(hList, LB_GETITEMDATA, selIdx, 0);
+                EndDialog(hDlg, origIdx + 1);
+            }
             return TRUE;
         }
         }
@@ -116,15 +120,25 @@ INT_PTR CALLBACK SelectorDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
 
         if (id == IDC_VERSION_LIST && HIWORD(wParam) == LBN_DBLCLK)
         {
-            int idx = (int)SendMessageW(GetDlgItem(hDlg, IDC_VERSION_LIST), LB_GETCURSEL, 0, 0);
-            if (idx >= 0) EndDialog(hDlg, idx + 1);
+            HWND hList = GetDlgItem(hDlg, IDC_VERSION_LIST);
+            int selIdx = (int)SendMessageW(hList, LB_GETCURSEL, 0, 0);
+            if (selIdx >= 0)
+            {
+                int origIdx = (int)SendMessageW(hList, LB_GETITEMDATA, selIdx, 0);
+                EndDialog(hDlg, origIdx + 1);
+            }
             return TRUE;
         }
 
         if (id == IDOK || id == IDC_SELECT_BUTTON)
         {
-            int idx = (int)SendMessageW(GetDlgItem(hDlg, IDC_VERSION_LIST), LB_GETCURSEL, 0, 0);
-            if (idx >= 0) EndDialog(hDlg, idx + 1);
+            HWND hList = GetDlgItem(hDlg, IDC_VERSION_LIST);
+            int selIdx = (int)SendMessageW(hList, LB_GETCURSEL, 0, 0);
+            if (selIdx >= 0)
+            {
+                int origIdx = (int)SendMessageW(hList, LB_GETITEMDATA, selIdx, 0);
+                EndDialog(hDlg, origIdx + 1);
+            }
             return TRUE;
         }
 

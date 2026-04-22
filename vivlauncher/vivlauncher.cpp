@@ -157,19 +157,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         OpenProjectWithSelector(xprPath, installs);
     }
 
-    HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_VIVLAUNCHER));
-    MSG msg;
-
-    while (GetMessage(&msg, nullptr, 0, 0))
-    {
-        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
-        {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
-    }
-
-    return (int) msg.wParam;
+    return 0;
 }
 
 
