@@ -310,6 +310,7 @@ std::vector<VivadoInstall> AddCustomPath(const wchar_t* path)
 bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath)
 {
     std::wstring exePath = vivadoExePath;
+    std::wstring params;
 
     std::wstring ext = fs::path(exePath).extension().native();
     std::transform(ext.begin(), ext.end(), ext.begin(), towlower);
@@ -320,7 +321,19 @@ bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath)
         if (fs::exists(vvglPath))
         {
             exePath = vvglPath.native();
+            // When using vvgl.exe, the first parameter must be the path to vivado.bat
+            // Note: vvgl.exe may misinterpret double quotes in lpParameters.
+            params = vivadoExePath;
         }
+    }
+
+    if (xprFilePath && *xprFilePath)
+    {
+        if (!params.empty())
+        {
+            params += L" ";
+        }
+        params += xprFilePath;
     }
 
     SHELLEXECUTEINFOW sei = {};
@@ -328,7 +341,7 @@ bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath)
     sei.fMask = SEE_MASK_NOCLOSEPROCESS;
     sei.lpVerb = L"open";
     sei.lpFile = exePath.c_str();
-    sei.lpParameters = xprFilePath;
+    sei.lpParameters = params.empty() ? nullptr : params.c_str();
     sei.nShow = SW_SHOWDEFAULT;
 
     if (ShellExecuteExW(&sei) && (size_t)sei.hInstApp > 32)
