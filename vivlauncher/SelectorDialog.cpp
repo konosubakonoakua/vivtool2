@@ -12,12 +12,12 @@ static WNDPROC g_oldListBoxProc = nullptr;
 static void ShowHelp(HWND hWnd)
 {
     MessageBoxW(hWnd,
-        L"Keyboard Shortcuts:\n\n"
-        L"  j, Down : Next version\n"
-        L"  k, Up   : Previous version\n"
-        L"  Enter, Space : Launch selected version\n"
-        L"  ?, h    : Show this help\n"
-        L"  q, Esc  : Cancel and Exit\n",
+        L"Keyboard & Mouse Shortcuts:\n\n"
+        L"  j, Down, Wheel Down : Next version\n"
+        L"  k, Up, Wheel Up     : Previous version\n"
+        L"  Enter, Space, L-DblClick : Launch selected\n"
+        L"  Middle Click, q, Esc : Cancel and Exit\n"
+        L"  ?, h : Show this help\n",
         L"Vivado Launcher Help",
         MB_OK | MB_ICONINFORMATION);
 }
@@ -27,6 +27,20 @@ static LRESULT CALLBACK ListBoxSubclassProc(HWND hWnd, UINT message, WPARAM wPar
     {
     case WM_GETDLGCODE:
         return DLGC_WANTALLKEYS;
+
+    case WM_MOUSEWHEEL:
+    {
+        short delta = GET_WHEEL_DELTA_WPARAM(wParam);
+        if (delta > 0) PostMessageW(hWnd, WM_KEYDOWN, VK_UP, 0);
+        else if (delta < 0) PostMessageW(hWnd, WM_KEYDOWN, VK_DOWN, 0);
+        return 0;
+    }
+
+    case WM_MBUTTONDOWN:
+    {
+        EndDialog(GetParent(hWnd), 0);
+        return 0;
+    }
 
     case WM_CHAR:
     {
