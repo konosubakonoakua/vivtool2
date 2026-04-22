@@ -1,0 +1,43 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build output
+x64/
+Debug/
+Release/
+vivlauncher/
+*.ilk
+*.pdb
+*.tlog
+*.idb
+*.log
+
+# Visual Studio project files
+*.vcxproj.user
+*.vcxproj.filters.user
+
+# Intermediate files
+*.obj
+*.res
+*.manifest
+*.exp
+*.bsc
+*.pch
+*.doc
+*.aps
+*.clw
+
+# Precompiled headers
+*.pch
+*.idb
+*.ipch
+
+# Executable
+*.exe
+*.dll
+*.lib
+*.out
