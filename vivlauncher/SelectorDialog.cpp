@@ -7,6 +7,64 @@ extern HINSTANCE hInst;
 static std::vector<VivadoInstall> g_installs;
 static std::wstring g_xprFilePath;
 static int g_selectedIndex = 0;
+static WNDPROC g_oldListBoxProc = nullptr;
+
+static void ShowHelp(HWND hWnd)
+{
+    MessageBoxW(hWnd,
+        L"Keyboard Shortcuts:\n\n"
+        L"  j, Down : Next version\n"
+        L"  k, Up   : Previous version\n"
+        L"  Enter, Space : Launch selected version\n"
+        L"  ?, h    : Show this help\n"
+        L"  q, Esc  : Cancel and Exit\n",
+        L"Vivado Launcher Help",
+        MB_OK | MB_ICONINFORMATION);
+}
+static LRESULT CALLBACK ListBoxSubclassProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    switch (message)
+    {
+    case WM_GETDLGCODE:
+        return DLGC_WANTALLKEYS;
+
+    case WM_CHAR:
+    {
+        wchar_t ch = (wchar_t)wParam;
+        switch (ch)
+        {
+        case L'j': PostMessageW(hWnd, WM_KEYDOWN, VK_DOWN, 0); return 0;
+        case L'k': PostMessageW(hWnd, WM_KEYDOWN, VK_UP, 0); return 0;
+        case L'?': ShowHelp(GetParent(hWnd)); return 0;
+        case L'h': ShowHelp(GetParent(hWnd)); return 0;
+        case L'q': EndDialog(GetParent(hWnd), 0); return 0;
+        }
+        break;
+    }
+    case WM_KEYDOWN:
+    {
+        switch (wParam)
+        {
+        case VK_RETURN:
+        case VK_SPACE:
+        {
+            int selIdx = (int)SendMessageW(hWnd, LB_GETCURSEL, 0, 0);
+            if (selIdx >= 0)
+            {
+                int origIdx = (int)SendMessageW(hWnd, LB_GETITEMDATA, selIdx, 0);
+                EndDialog(GetParent(hWnd), origIdx + 1);
+            }
+            return 0;
+        }
+        case VK_ESCAPE:
+            EndDialog(GetParent(hWnd), 0);
+            return 0;
+        }
+        break;
+    }
+    }
+    return CallWindowProcW(g_oldListBoxProc, hWnd, message, wParam, lParam);
+}
 
 static void PopulateList(HWND hList)
 {
@@ -19,16 +77,6 @@ static void PopulateList(HWND hList)
         int idx = (int)SendMessageW(hList, LB_ADDSTRING, 0, (LPARAM)display.c_str());
         SendMessageW(hList, LB_SETITEMDATA, idx, (LPARAM)i);
     }
-}
-
-static void MoveSelection(HWND hList, int delta)
-{
-    size_t count = (size_t)SendMessageW(hList, LB_GETCOUNT, 0, 0);
-    if (count == 0) return;
-
-    g_selectedIndex = (g_selectedIndex + delta + (int)count) % (int)count;
-    SendMessageW(hList, LB_SETCURSEL, g_selectedIndex, 0);
-    SendMessageW(hList, LB_SETTOPINDEX, g_selectedIndex, 0);
 }
 
 INT_PTR CALLBACK SelectorDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -69,49 +117,10 @@ INT_PTR CALLBACK SelectorDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
             g_selectedIndex = 0;
         }
 
+        g_oldListBoxProc = (WNDPROC)SetWindowLongPtrW(hList, GWLP_WNDPROC, (LONG_PTR)ListBoxSubclassProc);
+
         SetFocus(hList);
         return (INT_PTR)FALSE;
-    }
-
-    case WM_KEYDOWN:
-    {
-        HWND hList = GetDlgItem(hDlg, IDC_VERSION_LIST);
-        int vKey = (int)wParam;
-
-        switch (vKey)
-        {
-        case 'J':
-        case 'L':
-        case VK_DOWN:
-        case VK_TAB:
-            if (vKey == VK_TAB && (GetAsyncKeyState(VK_SHIFT) & 0x8000)) MoveSelection(hList, -1);
-            else MoveSelection(hList, 1);
-            return TRUE;
-
-        case 'K':
-        case 'H':
-        case VK_UP:
-            MoveSelection(hList, -1);
-            return TRUE;
-
-        case 'Q':
-        case VK_ESCAPE:
-            EndDialog(hDlg, 0);
-            return TRUE;
-
-        case VK_RETURN:
-        case VK_SPACE:
-        {
-            int selIdx = (int)SendMessageW(hList, LB_GETCURSEL, 0, 0);
-            if (selIdx >= 0)
-            {
-                int origIdx = (int)SendMessageW(hList, LB_GETITEMDATA, selIdx, 0);
-                EndDialog(hDlg, origIdx + 1);
-            }
-            return TRUE;
-        }
-        }
-        break;
     }
 
     case WM_COMMAND:
@@ -130,19 +139,7 @@ INT_PTR CALLBACK SelectorDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
             return TRUE;
         }
 
-        if (id == IDOK || id == IDC_SELECT_BUTTON)
-        {
-            HWND hList = GetDlgItem(hDlg, IDC_VERSION_LIST);
-            int selIdx = (int)SendMessageW(hList, LB_GETCURSEL, 0, 0);
-            if (selIdx >= 0)
-            {
-                int origIdx = (int)SendMessageW(hList, LB_GETITEMDATA, selIdx, 0);
-                EndDialog(hDlg, origIdx + 1);
-            }
-            return TRUE;
-        }
-
-        if (id == IDC_CANCEL_BUTTON || id == IDCANCEL)
+        if (id == IDCANCEL)
         {
             EndDialog(hDlg, 0);
             return TRUE;
