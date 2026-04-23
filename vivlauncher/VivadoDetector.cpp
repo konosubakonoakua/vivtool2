@@ -249,45 +249,47 @@ std::vector<VivadoInstall> DetectVivadoInstallations()
 {
     std::vector<VivadoInstall> installs;
 
-    installs = ScanOldStructure(L"C:\\Xilinx");
-    if (!installs.empty())
+    // 1. Iterate through all logical drives
+    wchar_t drives[512];
+    DWORD length = GetLogicalDriveStringsW(ARRAYSIZE(drives) - 1, drives);
+    if (length > 0 && length < ARRAYSIZE(drives))
     {
-        Deduplicate(installs);
-        return installs;
+        wchar_t* drive = drives;
+        while (*drive)
+        {
+            // Only scan local fixed drives to avoid network lag or removable media popups
+            if (GetDriveTypeW(drive) == DRIVE_FIXED)
+            {
+                std::wstring drivePath = drive; // e.g., "C:\"
+                
+                auto oldStruct = ScanOldStructure(drivePath + L"Xilinx");
+                installs.insert(installs.end(), oldStruct.begin(), oldStruct.end());
+
+                auto newStruct = ScanNewStructure(drivePath + L"Xilinx");
+                installs.insert(installs.end(), newStruct.begin(), newStruct.end());
+
+                auto amdStruct = ScanAMDStructure(drivePath + L"AMDDesignTools");
+                installs.insert(installs.end(), amdStruct.begin(), amdStruct.end());
+            }
+            drive += wcslen(drive) + 1;
+        }
     }
 
-    installs = ScanNewStructure(L"C:\\Xilinx");
-    if (!installs.empty())
-    {
-        Deduplicate(installs);
-        return installs;
-    }
-
-    installs = ScanAMDStructure(L"C:\\AMDDesignTools");
-    if (!installs.empty())
-    {
-        Deduplicate(installs);
-        return installs;
-    }
-
+    // 2. Scan Registry
     auto registry = ScanRegistry(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Xilinx\\Vivado");
     installs.insert(installs.end(), registry.begin(), registry.end());
 
     auto registryWow = ScanRegistry(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WOW6432Node\\Xilinx\\Vivado");
     installs.insert(installs.end(), registryWow.begin(), registryWow.end());
 
-    if (!installs.empty())
-    {
-        Deduplicate(installs);
-        return installs;
-    }
-
+    // 3. Scan Custom Paths
     auto custom = LoadCustomPaths();
     for (const auto& path : custom)
     {
         AddFromPath(path, installs);
     }
 
+    // 4. Uniform deduplication and sorting
     Deduplicate(installs);
     return installs;
 }
