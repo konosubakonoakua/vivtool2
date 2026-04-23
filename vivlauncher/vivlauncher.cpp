@@ -96,6 +96,22 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     CliOptions opts = ParseCliArgs(argc, argv);
     LocalFree(argv);
 
+    if (opts.listVersions || opts.addPath || opts.showHelp)
+    {
+        if (AttachConsole(ATTACH_PARENT_PROCESS))
+        {
+            FILE* fp;
+            freopen_s(&fp, "CONOUT$", "w", stdout);
+            freopen_s(&fp, "CONOUT$", "w", stderr);
+        }
+    }
+
+    if (opts.showHelp)
+    {
+        PrintHelp();
+        return 0;
+    }
+
     if (opts.listVersions)
     {
         auto installs = DetectVivadoInstallations();
@@ -107,7 +123,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     {
         if (opts.customPath.empty())
         {
-            wprintf(L"Error: --add requires a path argument\n");
+            fwprintf(stderr, L"Error: --add requires a path argument\n");
             return 1;
         }
         AddCustomPath(opts.customPath.c_str());

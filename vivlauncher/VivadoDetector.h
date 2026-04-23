@@ -15,6 +15,7 @@ struct CliOptions
 {
     bool listVersions = false;
     bool addPath = false;
+    bool showHelp = false;
     std::wstring xprFile;
     std::wstring customPath;
 };

@@ -378,7 +378,7 @@ CliOptions ParseCliArgs(int argc, wchar_t* argv[])
         }
         else if (arg == L"-h" || arg == L"--help" || arg == L"help")
         {
-            opts.listVersions = true;
+            opts.showHelp = true;
         }
         else if (arg[0] != L'-')
         {
