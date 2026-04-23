@@ -32,6 +32,7 @@ The project is structured as a single Visual Studio solution containing the `viv
 
 **PowerShell Script (Recommended):**
 ```powershell
+cd vivlauncher
 .\build.ps1 [Debug|Release]
 ```
 By default, it builds the `Release` configuration for `x64`.

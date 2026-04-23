@@ -1,7 +1,7 @@
 # build.ps1 - Script to build vivlauncher using Visual Studio environment
 
 $vsPath = "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat"
-$projectFile = "vivlauncher\vivlauncher.vcxproj"
+$projectFile = "vivlauncher.vcxproj"
 $configuration = "Release"
 $platform = "x64"
 
