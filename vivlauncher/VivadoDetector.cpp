@@ -309,49 +309,87 @@ std::vector<VivadoInstall> AddCustomPath(const wchar_t* path)
     return DetectVivadoInstallations();
 }
 
+static std::wstring GetShortName(const wchar_t* path)
+{
+    DWORD len = GetShortPathNameW(path, nullptr, 0);
+    if (len == 0)
+        return path;
+
+    std::wstring result(len, L'\0');
+    DWORD actual = GetShortPathNameW(path, &result[0], len);
+    if (actual == 0 || actual > len)
+        return path;
+
+    result.resize(actual);
+    return result;
+}
+
+static std::wstring QuoteIfNeeded(const wchar_t* path)
+{
+    if (wcschr(path, L' ') != nullptr)
+        return L'"' + std::wstring(path) + L'"';
+    return path;
+}
+
 bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath)
 {
-    std::wstring exePath = vivadoExePath;
-    std::wstring params;
+    std::wstring exeToLaunch = vivadoExePath;
+    std::wstring cmdLine;
 
-    std::wstring ext = fs::path(exePath).extension().native();
+    std::wstring ext = fs::path(exeToLaunch).extension().native();
     std::transform(ext.begin(), ext.end(), ext.begin(), towlower);
+
+    bool useVvgl = false;
+    std::wstring vivadoBatShort;
 
     if (ext == L".bat" || ext == L".cmd")
     {
-        fs::path vvglPath = fs::path(exePath).parent_path() / L"unwrapped\\win64.o\\vvgl.exe";
+        fs::path vvglPath = fs::path(exeToLaunch).parent_path() / L"unwrapped\\win64.o\\vvgl.exe";
         if (fs::exists(vvglPath))
         {
-            exePath = vvglPath.native();
-            // When using vvgl.exe, the first parameter must be the path to vivado.bat
-            // Note: vvgl.exe may misinterpret double quotes in lpParameters.
-            params = vivadoExePath;
+            exeToLaunch = vvglPath.native();
+            fs::path batPath(vivadoExePath);
+            vivadoBatShort = GetShortName(batPath.parent_path().c_str()) + L"\\" + batPath.filename().native();
+            useVvgl = true;
         }
+    }
+
+    cmdLine = QuoteIfNeeded(GetShortName(exeToLaunch.c_str()).c_str());
+
+    if (useVvgl)
+    {
+        cmdLine += L" ";
+        cmdLine += QuoteIfNeeded(vivadoBatShort.c_str());
     }
 
     if (xprFilePath && *xprFilePath)
     {
-        if (!params.empty())
-        {
-            params += L" ";
-        }
-        params += xprFilePath;
+        cmdLine += L" ";
+        fs::path xprPath(xprFilePath);
+        std::wstring xprShort = GetShortName(xprPath.parent_path().c_str()) + L"\\" + xprPath.filename().native();
+        cmdLine += QuoteIfNeeded(xprShort.c_str());
     }
 
-    SHELLEXECUTEINFOW sei = {};
-    sei.cbSize = sizeof(sei);
-    sei.fMask = SEE_MASK_NOCLOSEPROCESS;
-    sei.lpVerb = L"open";
-    sei.lpFile = exePath.c_str();
-    sei.lpParameters = params.empty() ? nullptr : params.c_str();
-    sei.nShow = SW_SHOWDEFAULT;
+    STARTUPINFOW si = { sizeof(si) };
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_SHOWDEFAULT;
 
-    if (ShellExecuteExW(&sei) && (size_t)sei.hInstApp > 32)
+    PROCESS_INFORMATION pi = {};
+
+    BOOL ok = CreateProcessW(
+        nullptr,
+        cmdLine.data(),
+        nullptr, nullptr,
+        FALSE,
+        0,
+        nullptr,
+        nullptr,
+        &si, &pi);
+
+    if (ok)
     {
-        if (sei.hProcess)
-        {
-            CloseHandle(sei.hProcess);
-        }
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
         return true;
     }
 
