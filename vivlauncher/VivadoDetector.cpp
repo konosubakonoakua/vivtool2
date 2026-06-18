@@ -309,21 +309,6 @@ std::vector<VivadoInstall> AddCustomPath(const wchar_t* path)
     return DetectVivadoInstallations();
 }
 
-static std::wstring GetShortName(const wchar_t* path)
-{
-    DWORD len = GetShortPathNameW(path, nullptr, 0);
-    if (len == 0)
-        return path;
-
-    std::wstring result(len, L'\0');
-    DWORD actual = GetShortPathNameW(path, &result[0], len);
-    if (actual == 0 || actual > len)
-        return path;
-
-    result.resize(actual);
-    return result;
-}
-
 static std::wstring QuoteIfNeeded(const wchar_t* path)
 {
     if (wcschr(path, L' ') != nullptr)
@@ -340,7 +325,6 @@ bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath)
     std::transform(ext.begin(), ext.end(), ext.begin(), towlower);
 
     bool useVvgl = false;
-    std::wstring vivadoBatShort;
 
     if (ext == L".bat" || ext == L".cmd")
     {
@@ -348,26 +332,23 @@ bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath)
         if (fs::exists(vvglPath))
         {
             exeToLaunch = vvglPath.native();
-            fs::path batPath(vivadoExePath);
-            vivadoBatShort = GetShortName(batPath.parent_path().c_str()) + L"\\" + batPath.filename().native();
             useVvgl = true;
         }
     }
 
-    cmdLine = QuoteIfNeeded(GetShortName(exeToLaunch.c_str()).c_str());
+    // argv[0]: application path itself (standard convention)
+    cmdLine = QuoteIfNeeded(exeToLaunch.c_str());
 
     if (useVvgl)
     {
         cmdLine += L" ";
-        cmdLine += QuoteIfNeeded(vivadoBatShort.c_str());
+        cmdLine += QuoteIfNeeded(vivadoExePath);
     }
 
     if (xprFilePath && *xprFilePath)
     {
         cmdLine += L" ";
-        fs::path xprPath(xprFilePath);
-        std::wstring xprShort = GetShortName(xprPath.parent_path().c_str()) + L"\\" + xprPath.filename().native();
-        cmdLine += QuoteIfNeeded(xprShort.c_str());
+        cmdLine += QuoteIfNeeded(xprFilePath);
     }
 
     STARTUPINFOW si = { sizeof(si) };
@@ -377,8 +358,8 @@ bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath)
     PROCESS_INFORMATION pi = {};
 
     BOOL ok = CreateProcessW(
-        nullptr,
-        cmdLine.data(),
+        exeToLaunch.c_str(),            // lpApplicationName — direct file path, Unicode-safe, no parsing
+        cmdLine.data(),                 // lpCommandLine — argv for child process
         nullptr, nullptr,
         FALSE,
         0,
