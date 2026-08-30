@@ -513,9 +513,9 @@ LaunchSettings LoadLaunchSettings()
     LaunchSettings settings;
     auto settingsPath = GetSettingsFilePath();
     wchar_t value[32768] = {};
-    GetPrivateProfileStringW(L"launch", L"no_log", L"0", value, ARRAYSIZE(value), settingsPath.c_str());
+    GetPrivateProfileStringW(L"launch", L"no_log", L"1", value, ARRAYSIZE(value), settingsPath.c_str());
     settings.noLog = wcscmp(value, L"1") == 0;
-    GetPrivateProfileStringW(L"launch", L"no_journal", L"0", value, ARRAYSIZE(value), settingsPath.c_str());
+    GetPrivateProfileStringW(L"launch", L"no_journal", L"1", value, ARRAYSIZE(value), settingsPath.c_str());
     settings.noJournal = wcscmp(value, L"1") == 0;
     GetPrivateProfileStringW(L"launch", L"extra_args", L"", value, ARRAYSIZE(value), settingsPath.c_str());
     settings.extraArgs = value;
