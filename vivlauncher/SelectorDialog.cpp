@@ -226,12 +226,11 @@ static std::vector<VivadoInstall> g_mainInstalls;
 static std::vector<RecentProject> g_mainRecent;
 static LaunchSettings g_launchSettings;
 
-static void SetMainTab(HWND hDlg, int tab)
+static void SetMainTab(HWND hDlg, int topTab, int lowerTab)
 {
     const int openControls[] = {
         IDC_PROJECT_LABEL, IDC_PROJECT_PATH, IDC_BROWSE_PROJECT,
-        IDC_RECENT_LABEL, IDC_RECENT_PROJECTS, IDC_INSTALL_LABEL,
-        IDC_INSTALL_LIST, IDC_BIND_PROJECT, IDC_OPEN_PROJECT
+        IDC_RECENT_LABEL, IDC_RECENT_PROJECTS, IDC_BIND_PROJECT
     };
     const int vivadoControls[] = {
         IDC_INSTALL_LABEL, IDC_INSTALL_LIST, IDC_REFRESH_INSTALLS,
@@ -245,11 +244,14 @@ static void SetMainTab(HWND hDlg, int tab)
         IDC_OPEN_LOG_FOLDER, IDC_CLEAR_RECENT, IDC_OPEN_CONFIG_FOLDER,
         IDC_LOG_PATH, IDC_CONFIG_PATH, IDC_LOG_LABEL, IDC_CONFIG_LABEL
     };
+    const int helpControls[] = { IDC_HELP_LABEL, IDC_HELP_TEXT };
 
-    for (int id : openControls) ShowWindow(GetDlgItem(hDlg, id), tab == 0 ? SW_SHOW : SW_HIDE);
-    for (int id : vivadoControls) ShowWindow(GetDlgItem(hDlg, id), tab == 1 ? SW_SHOW : SW_HIDE);
-    for (int id : launchControls) ShowWindow(GetDlgItem(hDlg, id), tab == 2 ? SW_SHOW : SW_HIDE);
-    for (int id : diagnosticControls) ShowWindow(GetDlgItem(hDlg, id), tab == 3 ? SW_SHOW : SW_HIDE);
+    for (int id : openControls) ShowWindow(GetDlgItem(hDlg, id), topTab == 0 ? SW_SHOW : SW_HIDE);
+    for (int id : diagnosticControls) ShowWindow(GetDlgItem(hDlg, id), topTab == 1 ? SW_SHOW : SW_HIDE);
+    for (int id : helpControls) ShowWindow(GetDlgItem(hDlg, id), topTab == 2 ? SW_SHOW : SW_HIDE);
+    for (int id : vivadoControls) ShowWindow(GetDlgItem(hDlg, id), lowerTab == 0 ? SW_SHOW : SW_HIDE);
+    for (int id : launchControls) ShowWindow(GetDlgItem(hDlg, id), lowerTab == 1 ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(hDlg, IDC_OPEN_PROJECT), topTab == 0 ? SW_SHOW : SW_HIDE);
 }
 
 static void PopulateMainInstallList(HWND hDlg)
@@ -282,15 +284,15 @@ static void PopulateMainInstallList(HWND hDlg)
 
 static void PopulateRecentList(HWND hDlg)
 {
-    HWND hCombo = GetDlgItem(hDlg, IDC_RECENT_PROJECTS);
-    SendMessageW(hCombo, CB_RESETCONTENT, 0, 0);
+    HWND hList = GetDlgItem(hDlg, IDC_RECENT_PROJECTS);
+    SendMessageW(hList, LB_RESETCONTENT, 0, 0);
     g_mainRecent = LoadRecentProjects();
     for (size_t i = 0; i < g_mainRecent.size(); ++i)
     {
         std::wstring display = fs::path(g_mainRecent[i].path).filename().native();
         display += L"  (" + g_mainRecent[i].path + L")";
-        int item = (int)SendMessageW(hCombo, CB_ADDSTRING, 0, (LPARAM)display.c_str());
-        SendMessageW(hCombo, CB_SETITEMDATA, item, (LPARAM)i);
+        int item = (int)SendMessageW(hList, LB_ADDSTRING, 0, (LPARAM)display.c_str());
+        SendMessageW(hList, LB_SETITEMDATA, item, (LPARAM)i);
     }
 }
 
@@ -372,13 +374,21 @@ INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
         HWND hTabs = GetDlgItem(hDlg, IDC_MAIN_TABS);
         TCITEMW tab = {};
         tab.mask = TCIF_TEXT;
-        const wchar_t* tabNames[] = { L"Open project", L"Vivado", L"Launch", L"Diagnostics" };
+        const wchar_t* tabNames[] = { L"Projects", L"Diagnosis", L"Help" };
         for (const wchar_t* name : tabNames)
         {
             tab.pszText = const_cast<wchar_t*>(name);
             TabCtrl_InsertItem(hTabs, TabCtrl_GetItemCount(hTabs), &tab);
         }
         TabCtrl_SetCurSel(hTabs, 0);
+        HWND hLowerTabs = GetDlgItem(hDlg, IDC_LOWER_TABS);
+        const wchar_t* lowerTabNames[] = { L"Vivado", L"Launch" };
+        for (const wchar_t* name : lowerTabNames)
+        {
+            tab.pszText = const_cast<wchar_t*>(name);
+            TabCtrl_InsertItem(hLowerTabs, TabCtrl_GetItemCount(hLowerTabs), &tab);
+        }
+        TabCtrl_SetCurSel(hLowerTabs, 0);
         const wchar_t* initialPath = (const wchar_t*)lParam;
         if (initialPath && *initialPath)
             SetProjectPath(hDlg, initialPath);
@@ -389,16 +399,30 @@ INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
         SetWindowTextW(GetDlgItem(hDlg, IDC_EXTRA_ARGS), g_launchSettings.extraArgs.c_str());
         SetWindowTextW(GetDlgItem(hDlg, IDC_LOG_PATH), GetLogFilePath().c_str());
         SetWindowTextW(GetDlgItem(hDlg, IDC_CONFIG_PATH), GetSettingsFilePath().c_str());
+        SetWindowTextW(GetDlgItem(hDlg, IDC_HELP_TEXT),
+                       L"vivlauncher\r\n\r\n"
+                       L"Select a project and Vivado version, then click Open project.\r\n"
+                       L"Bind project remembers the selected Vivado version.\r\n"
+                       L"Double-clicking an associated .xpr file opens this window.\r\n\r\n"
+                       L"Command line:\r\nvivlauncher.exe project.xpr\r\nvivlauncher.exe --list");
         PopulateMainInstallList(hDlg);
         PopulateRecentList(hDlg);
-        SetMainTab(hDlg, 0);
+        SetMainTab(hDlg, 0, 0);
         return TRUE;
     }
     case WM_NOTIFY:
         if (((LPNMHDR)lParam)->idFrom == IDC_MAIN_TABS &&
             ((LPNMHDR)lParam)->code == TCN_SELCHANGE)
         {
-            SetMainTab(hDlg, TabCtrl_GetCurSel(GetDlgItem(hDlg, IDC_MAIN_TABS)));
+            SetMainTab(hDlg, TabCtrl_GetCurSel(GetDlgItem(hDlg, IDC_MAIN_TABS)),
+                       TabCtrl_GetCurSel(GetDlgItem(hDlg, IDC_LOWER_TABS)));
+            return TRUE;
+        }
+        if (((LPNMHDR)lParam)->idFrom == IDC_LOWER_TABS &&
+            ((LPNMHDR)lParam)->code == TCN_SELCHANGE)
+        {
+            SetMainTab(hDlg, TabCtrl_GetCurSel(GetDlgItem(hDlg, IDC_MAIN_TABS)),
+                       TabCtrl_GetCurSel(GetDlgItem(hDlg, IDC_LOWER_TABS)));
             return TRUE;
         }
         break;
@@ -420,16 +444,19 @@ INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
             }
             return TRUE;
         }
-        if (id == IDC_RECENT_PROJECTS && HIWORD(wParam) == CBN_SELCHANGE)
+        if (id == IDC_RECENT_PROJECTS &&
+            (HIWORD(wParam) == LBN_SELCHANGE || HIWORD(wParam) == LBN_DBLCLK))
         {
-            int item = (int)SendMessageW((HWND)lParam, CB_GETCURSEL, 0, 0);
+            int item = (int)SendMessageW((HWND)lParam, LB_GETCURSEL, 0, 0);
             if (item >= 0)
             {
-                int index = (int)SendMessageW((HWND)lParam, CB_GETITEMDATA, item, 0);
+                int index = (int)SendMessageW((HWND)lParam, LB_GETITEMDATA, item, 0);
                 if (index >= 0 && index < (int)g_mainRecent.size())
                 {
                     SetProjectPath(hDlg, g_mainRecent[index].path);
                     PopulateMainInstallList(hDlg);
+                    if (HIWORD(wParam) == LBN_DBLCLK)
+                        OpenMainProject(hDlg);
                 }
             }
             return TRUE;

@@ -49,6 +49,9 @@
 #define IDC_CONFIG_PATH                155
 #define IDC_LOG_LABEL                  156
 #define IDC_CONFIG_LABEL               157
+#define IDC_LOWER_TABS                 158
+#define IDC_HELP_TEXT                  159
+#define IDC_HELP_LABEL                 160
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED

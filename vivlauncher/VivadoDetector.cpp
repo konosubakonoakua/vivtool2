@@ -13,7 +13,7 @@ static std::wstring GetConfigPath()
     wchar_t appData[MAX_PATH];
     if (SHGetSpecialFolderPathW(nullptr, appData, CSIDL_APPDATA, TRUE))
     {
-        return std::wstring(appData) + L"\\vivlauncher\\paths.json";
+        return std::wstring(appData) + L"\\vivlauncher\\paths.txt";
     }
     return {};
 }
@@ -32,6 +32,19 @@ std::wstring GetLogFilePath()
     if (!SHGetSpecialFolderPathW(nullptr, localAppData, CSIDL_LOCAL_APPDATA, TRUE))
         return {};
     return (fs::path(localAppData) / L"vivlauncher" / L"vivlauncher.log").native();
+}
+
+static fs::path NormalizeVivadoPath(std::wstring path)
+{
+    while (!path.empty() && (path.back() == L' ' || path.back() == L'\t' || path.back() == L'"'))
+        path.pop_back();
+    while (!path.empty() && (path.front() == L' ' || path.front() == L'\t' || path.front() == L'"'))
+        path.erase(path.begin());
+
+    fs::path result(path);
+    if (_wcsicmp(result.filename().c_str(), L"bin") == 0)
+        result = result.parent_path();
+    return result;
 }
 
 static void AppendLaunchLog(const std::wstring& message)
@@ -65,10 +78,14 @@ static std::vector<std::wstring> LoadCustomPaths()
 {
     std::vector<std::wstring> paths;
     auto configPath = GetConfigPath();
+    std::wstring legacyConfigPath;
+    if (!configPath.empty())
+        legacyConfigPath = (fs::path(configPath).parent_path() / L"paths.json").native();
 
-    if (fs::exists(configPath))
+    std::wstring inputPath = fs::exists(configPath) ? configPath : legacyConfigPath;
+    if (fs::exists(inputPath))
     {
-        std::wifstream file(configPath);
+        std::wifstream file(inputPath);
         if (file.is_open())
         {
             std::wstring line;
@@ -79,10 +96,11 @@ static std::vector<std::wstring> LoadCustomPaths()
 
                 if (!line.empty() && line[0] != L'#')
                 {
-                    fs::path vivadoBat = fs::path(line) / L"bin\\vivado.bat";
+                    fs::path rootPath = NormalizeVivadoPath(line);
+                    fs::path vivadoBat = rootPath / L"bin\\vivado.bat";
                     if (fs::exists(vivadoBat))
                     {
-                        paths.push_back(line);
+                        paths.push_back(rootPath.native());
                     }
                 }
             }
@@ -342,13 +360,14 @@ std::vector<VivadoInstall> DetectVivadoInstallations()
 std::vector<VivadoInstall> AddCustomPath(const wchar_t* path)
 {
     auto configPath = GetConfigPath();
+    fs::path rootPath = NormalizeVivadoPath(path ? path : L"");
 
     fs::create_directories(fs::path(configPath).parent_path());
 
     std::wofstream file(configPath, std::ios::app);
     if (file.is_open())
     {
-        file << path << L"\n";
+        file << rootPath.native() << L"\n";
     }
 
     return DetectVivadoInstallations();
