@@ -226,6 +226,29 @@ static std::vector<VivadoInstall> g_mainInstalls;
 static std::vector<RecentProject> g_mainRecent;
 static LaunchSettings g_launchSettings;
 
+static void CenterMainDialog(HWND hDlg)
+{
+    RECT windowRect = {};
+    if (!GetWindowRect(hDlg, &windowRect))
+        return;
+
+    POINT cursor = {};
+    GetCursorPos(&cursor);
+    HMONITOR monitor = MonitorFromPoint(cursor, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO monitorInfo = { sizeof(monitorInfo) };
+    if (!GetMonitorInfoW(monitor, &monitorInfo))
+        return;
+
+    int width = windowRect.right - windowRect.left;
+    int height = windowRect.bottom - windowRect.top;
+    int x = monitorInfo.rcWork.left +
+            ((monitorInfo.rcWork.right - monitorInfo.rcWork.left) - width) / 2;
+    int y = monitorInfo.rcWork.top +
+            ((monitorInfo.rcWork.bottom - monitorInfo.rcWork.top) - height) / 2;
+
+    SetWindowPos(hDlg, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
 static void SetMainTab(HWND hDlg, int topTab, int lowerTab)
 {
     const int openControls[] = {
@@ -371,6 +394,7 @@ INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
     {
     case WM_INITDIALOG:
     {
+        CenterMainDialog(hDlg);
         HWND hTabs = GetDlgItem(hDlg, IDC_MAIN_TABS);
         TCITEMW tab = {};
         tab.mask = TCIF_TEXT;
