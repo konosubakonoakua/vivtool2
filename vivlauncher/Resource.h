@@ -35,6 +35,11 @@
 #define IDC_NO_LOG                     141
 #define IDC_NO_JOURNAL                 142
 #define IDC_EXTRA_ARGS                 143
+#define IDC_MAIN_TABS                  144
+#define IDC_PROJECT_LABEL              145
+#define IDC_RECENT_LABEL               146
+#define IDC_INSTALL_LABEL              147
+#define IDC_OPTIONS_LABEL              148
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED

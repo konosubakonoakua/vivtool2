@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <commctrl.h>
 
 namespace fs = std::filesystem;
 
@@ -225,6 +226,28 @@ static std::vector<VivadoInstall> g_mainInstalls;
 static std::vector<RecentProject> g_mainRecent;
 static LaunchSettings g_launchSettings;
 
+static void SetMainTab(HWND hDlg, int tab)
+{
+    const int openControls[] = {
+        IDC_PROJECT_LABEL, IDC_PROJECT_PATH, IDC_BROWSE_PROJECT,
+        IDC_RECENT_LABEL, IDC_RECENT_PROJECTS, IDC_INSTALL_LABEL,
+        IDC_INSTALL_LIST, IDC_BIND_PROJECT, IDC_OPEN_PROJECT
+    };
+    const int vivadoControls[] = {
+        IDC_INSTALL_LABEL, IDC_INSTALL_LIST, IDC_REFRESH_INSTALLS,
+        IDC_ADD_INSTALL, IDC_SET_DEFAULT
+    };
+    const int launchControls[] = {
+        IDC_OPTIONS_LABEL, IDC_NO_LOG, IDC_NO_JOURNAL, IDC_EXTRA_ARGS
+    };
+    const int diagnosticControls[] = { IDC_REGISTER_XPR };
+
+    for (int id : openControls) ShowWindow(GetDlgItem(hDlg, id), tab == 0 ? SW_SHOW : SW_HIDE);
+    for (int id : vivadoControls) ShowWindow(GetDlgItem(hDlg, id), tab == 1 ? SW_SHOW : SW_HIDE);
+    for (int id : launchControls) ShowWindow(GetDlgItem(hDlg, id), tab == 2 ? SW_SHOW : SW_HIDE);
+    for (int id : diagnosticControls) ShowWindow(GetDlgItem(hDlg, id), tab == 3 ? SW_SHOW : SW_HIDE);
+}
+
 static void PopulateMainInstallList(HWND hDlg)
 {
     HWND hList = GetDlgItem(hDlg, IDC_INSTALL_LIST);
@@ -330,6 +353,16 @@ INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
     {
     case WM_INITDIALOG:
     {
+        HWND hTabs = GetDlgItem(hDlg, IDC_MAIN_TABS);
+        TCITEMW tab = {};
+        tab.mask = TCIF_TEXT;
+        const wchar_t* tabNames[] = { L"Open project", L"Vivado", L"Launch", L"Diagnostics" };
+        for (const wchar_t* name : tabNames)
+        {
+            tab.pszText = const_cast<wchar_t*>(name);
+            TabCtrl_InsertItem(hTabs, TabCtrl_GetItemCount(hTabs), &tab);
+        }
+        TabCtrl_SetCurSel(hTabs, 0);
         const wchar_t* initialPath = (const wchar_t*)lParam;
         if (initialPath && *initialPath)
             SetProjectPath(hDlg, initialPath);
@@ -340,8 +373,17 @@ INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
         SetWindowTextW(GetDlgItem(hDlg, IDC_EXTRA_ARGS), g_launchSettings.extraArgs.c_str());
         PopulateMainInstallList(hDlg);
         PopulateRecentList(hDlg);
+        SetMainTab(hDlg, 0);
         return TRUE;
     }
+    case WM_NOTIFY:
+        if (((LPNMHDR)lParam)->idFrom == IDC_MAIN_TABS &&
+            ((LPNMHDR)lParam)->code == TCN_SELCHANGE)
+        {
+            SetMainTab(hDlg, TabCtrl_GetCurSel(GetDlgItem(hDlg, IDC_MAIN_TABS)));
+            return TRUE;
+        }
+        break;
     case WM_COMMAND:
     {
         int id = LOWORD(wParam);

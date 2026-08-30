@@ -4,6 +4,9 @@
 #include "vivlauncher.h"
 #include "VivadoDetector.h"
 #include "SelectorDialog.h"
+#include <commctrl.h>
+
+#pragma comment(lib, "comctl32.lib")
 
 #define MAX_LOADSTRING 100
 
@@ -72,6 +75,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_ int       nCmdShow)
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
+    INITCOMMONCONTROLSEX commonControls = { sizeof(commonControls), ICC_TAB_CLASSES };
+    InitCommonControlsEx(&commonControls);
 
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
