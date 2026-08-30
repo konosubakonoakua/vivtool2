@@ -40,6 +40,15 @@
 #define IDC_RECENT_LABEL               146
 #define IDC_INSTALL_LABEL              147
 #define IDC_OPTIONS_LABEL              148
+#define IDC_VIEW_LOG                   149
+#define IDC_OPEN_LOG_FOLDER            150
+#define IDC_CLEAR_RECENT               151
+#define IDC_OPEN_CONFIG_FOLDER         152
+#define IDC_DIAGNOSTIC_LABEL           153
+#define IDC_LOG_PATH                   154
+#define IDC_CONFIG_PATH                155
+#define IDC_LOG_LABEL                  156
+#define IDC_CONFIG_LABEL               157
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED

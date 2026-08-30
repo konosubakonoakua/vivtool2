@@ -18,7 +18,7 @@ static std::wstring GetConfigPath()
     return {};
 }
 
-static std::wstring GetSettingsPath()
+std::wstring GetSettingsFilePath()
 {
     auto configPath = GetConfigPath();
     if (configPath.empty())
@@ -26,7 +26,7 @@ static std::wstring GetSettingsPath()
     return (fs::path(configPath).parent_path() / L"settings.ini").native();
 }
 
-static std::wstring GetLogPath()
+std::wstring GetLogFilePath()
 {
     wchar_t localAppData[MAX_PATH] = {};
     if (!SHGetSpecialFolderPathW(nullptr, localAppData, CSIDL_LOCAL_APPDATA, TRUE))
@@ -36,7 +36,7 @@ static std::wstring GetLogPath()
 
 static void AppendLaunchLog(const std::wstring& message)
 {
-    auto logPath = GetLogPath();
+    auto logPath = GetLogFilePath();
     if (logPath.empty())
         return;
     fs::create_directories(fs::path(logPath).parent_path());
@@ -357,7 +357,7 @@ std::vector<VivadoInstall> AddCustomPath(const wchar_t* path)
 std::wstring LoadDefaultVersion()
 {
     wchar_t value[64] = {};
-    auto settingsPath = GetSettingsPath();
+    auto settingsPath = GetSettingsFilePath();
     GetPrivateProfileStringW(L"vivlauncher", L"default_version", L"", value,
                              ARRAYSIZE(value), settingsPath.c_str());
     return value;
@@ -365,7 +365,7 @@ std::wstring LoadDefaultVersion()
 
 bool SaveDefaultVersion(const std::wstring& version)
 {
-    auto settingsPath = GetSettingsPath();
+    auto settingsPath = GetSettingsFilePath();
     if (settingsPath.empty())
         return false;
     fs::create_directories(fs::path(settingsPath).parent_path());
@@ -376,7 +376,7 @@ bool SaveDefaultVersion(const std::wstring& version)
 std::vector<RecentProject> LoadRecentProjects()
 {
     std::vector<RecentProject> projects;
-    auto settingsPath = GetSettingsPath();
+    auto settingsPath = GetSettingsFilePath();
     if (settingsPath.empty())
         return projects;
 
@@ -402,7 +402,7 @@ std::vector<RecentProject> LoadRecentProjects()
 
 void RememberRecentProject(const std::wstring& path, const std::wstring& version)
 {
-    auto settingsPath = GetSettingsPath();
+    auto settingsPath = GetSettingsFilePath();
     if (settingsPath.empty())
         return;
     fs::create_directories(fs::path(settingsPath).parent_path());
@@ -430,10 +430,19 @@ void RememberRecentProject(const std::wstring& path, const std::wstring& version
     }
 }
 
+bool ClearRecentProjects()
+{
+    auto settingsPath = GetSettingsFilePath();
+    if (settingsPath.empty())
+        return false;
+    return WritePrivateProfileStringW(L"recent_projects", nullptr, nullptr,
+                                      settingsPath.c_str()) != FALSE;
+}
+
 std::wstring LoadProjectVersion(const std::wstring& path)
 {
     wchar_t value[64] = {};
-    auto settingsPath = GetSettingsPath();
+    auto settingsPath = GetSettingsFilePath();
     std::wstring absolutePath = GetAbsolutePath(path);
     GetPrivateProfileStringW(L"project_versions", ProjectSettingsKey(absolutePath).c_str(), L"",
                              value, ARRAYSIZE(value), settingsPath.c_str());
@@ -442,7 +451,7 @@ std::wstring LoadProjectVersion(const std::wstring& path)
 
 bool SaveProjectVersion(const std::wstring& path, const std::wstring& version)
 {
-    auto settingsPath = GetSettingsPath();
+    auto settingsPath = GetSettingsFilePath();
     if (settingsPath.empty())
         return false;
     fs::create_directories(fs::path(settingsPath).parent_path());
@@ -483,7 +492,7 @@ bool RegisterXprFileAssociation()
 LaunchSettings LoadLaunchSettings()
 {
     LaunchSettings settings;
-    auto settingsPath = GetSettingsPath();
+    auto settingsPath = GetSettingsFilePath();
     wchar_t value[32768] = {};
     GetPrivateProfileStringW(L"launch", L"no_log", L"0", value, ARRAYSIZE(value), settingsPath.c_str());
     settings.noLog = wcscmp(value, L"1") == 0;
@@ -496,7 +505,7 @@ LaunchSettings LoadLaunchSettings()
 
 bool SaveLaunchSettings(const LaunchSettings& settings)
 {
-    auto settingsPath = GetSettingsPath();
+    auto settingsPath = GetSettingsFilePath();
     if (settingsPath.empty())
         return false;
     fs::create_directories(fs::path(settingsPath).parent_path());

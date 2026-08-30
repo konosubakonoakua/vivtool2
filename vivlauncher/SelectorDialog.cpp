@@ -240,7 +240,11 @@ static void SetMainTab(HWND hDlg, int tab)
     const int launchControls[] = {
         IDC_OPTIONS_LABEL, IDC_NO_LOG, IDC_NO_JOURNAL, IDC_EXTRA_ARGS
     };
-    const int diagnosticControls[] = { IDC_REGISTER_XPR };
+    const int diagnosticControls[] = {
+        IDC_REGISTER_XPR, IDC_DIAGNOSTIC_LABEL, IDC_VIEW_LOG,
+        IDC_OPEN_LOG_FOLDER, IDC_CLEAR_RECENT, IDC_OPEN_CONFIG_FOLDER,
+        IDC_LOG_PATH, IDC_CONFIG_PATH, IDC_LOG_LABEL, IDC_CONFIG_LABEL
+    };
 
     for (int id : openControls) ShowWindow(GetDlgItem(hDlg, id), tab == 0 ? SW_SHOW : SW_HIDE);
     for (int id : vivadoControls) ShowWindow(GetDlgItem(hDlg, id), tab == 1 ? SW_SHOW : SW_HIDE);
@@ -293,6 +297,18 @@ static void PopulateRecentList(HWND hDlg)
 static void SetProjectPath(HWND hDlg, const std::wstring& path)
 {
     SetWindowTextW(GetDlgItem(hDlg, IDC_PROJECT_PATH), path.c_str());
+}
+
+static void OpenShellPath(HWND hDlg, const std::wstring& path)
+{
+    if (path.empty())
+        return;
+    HINSTANCE result = ShellExecuteW(hDlg, L"open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    if ((INT_PTR)result <= 32)
+    {
+        MessageBoxW(hDlg, L"Windows could not open this path.", L"Vivado Launcher",
+                    MB_OK | MB_ICONWARNING);
+    }
 }
 
 static bool OpenMainProject(HWND hDlg)
@@ -371,6 +387,8 @@ INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
         CheckDlgButton(hDlg, IDC_NO_LOG, g_launchSettings.noLog ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(hDlg, IDC_NO_JOURNAL, g_launchSettings.noJournal ? BST_CHECKED : BST_UNCHECKED);
         SetWindowTextW(GetDlgItem(hDlg, IDC_EXTRA_ARGS), g_launchSettings.extraArgs.c_str());
+        SetWindowTextW(GetDlgItem(hDlg, IDC_LOG_PATH), GetLogFilePath().c_str());
+        SetWindowTextW(GetDlgItem(hDlg, IDC_CONFIG_PATH), GetSettingsFilePath().c_str());
         PopulateMainInstallList(hDlg);
         PopulateRecentList(hDlg);
         SetMainTab(hDlg, 0);
@@ -466,6 +484,40 @@ INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
             MessageBoxW(hDlg, registered ? L".xpr files are now associated with vivlauncher."
                                          : L"Could not register the .xpr file association.",
                         L"Vivado Launcher", MB_OK | (registered ? MB_ICONINFORMATION : MB_ICONERROR));
+            return TRUE;
+        }
+        if (id == IDC_VIEW_LOG)
+        {
+            auto logPath = GetLogFilePath();
+            if (!fs::exists(logPath))
+            {
+                MessageBoxW(hDlg, L"No launch log has been created yet.", L"Vivado Launcher",
+                            MB_OK | MB_ICONINFORMATION);
+            }
+            else
+            {
+                OpenShellPath(hDlg, logPath);
+            }
+            return TRUE;
+        }
+        if (id == IDC_OPEN_LOG_FOLDER || id == IDC_OPEN_CONFIG_FOLDER)
+        {
+            auto filePath = id == IDC_OPEN_LOG_FOLDER ? GetLogFilePath() : GetSettingsFilePath();
+            OpenShellPath(hDlg, fs::path(filePath).parent_path().native());
+            return TRUE;
+        }
+        if (id == IDC_CLEAR_RECENT)
+        {
+            if (MessageBoxW(hDlg, L"Clear the recent project list?", L"Vivado Launcher",
+                            MB_YESNO | MB_ICONQUESTION) == IDYES)
+            {
+                if (ClearRecentProjects())
+                {
+                    PopulateRecentList(hDlg);
+                    MessageBoxW(hDlg, L"Recent projects cleared.", L"Vivado Launcher",
+                                MB_OK | MB_ICONINFORMATION);
+                }
+            }
             return TRUE;
         }
         if (id == IDC_ADD_INSTALL)

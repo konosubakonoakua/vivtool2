@@ -41,10 +41,13 @@ std::wstring LoadDefaultVersion();
 bool SaveDefaultVersion(const std::wstring& version);
 std::vector<RecentProject> LoadRecentProjects();
 void RememberRecentProject(const std::wstring& path, const std::wstring& version);
+bool ClearRecentProjects();
 std::wstring LoadProjectVersion(const std::wstring& path);
 bool SaveProjectVersion(const std::wstring& path, const std::wstring& version);
 bool RegisterXprFileAssociation();
 LaunchSettings LoadLaunchSettings();
 bool SaveLaunchSettings(const LaunchSettings& settings);
+std::wstring GetSettingsFilePath();
+std::wstring GetLogFilePath();
 bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath,
                   const LaunchSettings& settings = {});

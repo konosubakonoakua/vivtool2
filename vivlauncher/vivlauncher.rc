@@ -120,6 +120,15 @@ BEGIN
     PUSHBUTTON      "Bind project",IDC_BIND_PROJECT,269,310,95,22
     PUSHBUTTON      "Associate .xpr",IDC_REGISTER_XPR,369,310,105,22
     DEFPUSHBUTTON   "Open",IDC_OPEN_PROJECT,479,310,66,22
+    LTEXT           "Diagnostics",IDC_DIAGNOSTIC_LABEL,20,39,100,12
+    PUSHBUTTON      "View log",IDC_VIEW_LOG,20,65,90,22
+    PUSHBUTTON      "Open log folder",IDC_OPEN_LOG_FOLDER,115,65,105,22
+    PUSHBUTTON      "Clear recent projects",IDC_CLEAR_RECENT,230,65,130,22
+    PUSHBUTTON      "Open config folder",IDC_OPEN_CONFIG_FOLDER,365,65,120,22
+    LTEXT           "Log file:",IDC_LOG_LABEL,20,105,60,12
+    EDITTEXT        IDC_LOG_PATH,20,121,515,20,ES_READONLY | WS_BORDER | ES_AUTOHSCROLL
+    LTEXT           "Config file:",IDC_CONFIG_LABEL,20,157,65,12
+    EDITTEXT        IDC_CONFIG_PATH,20,173,515,20,ES_READONLY | WS_BORDER | ES_AUTOHSCROLL
 END
 
 /////////////////////////////////////////////////////////////////////////////
