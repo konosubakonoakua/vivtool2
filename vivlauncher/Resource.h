@@ -52,6 +52,7 @@
 #define IDC_LOWER_TABS                 158
 #define IDC_HELP_TEXT                  159
 #define IDC_HELP_LABEL                 160
+#define IDC_ADDITIONAL_LABEL           161
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED

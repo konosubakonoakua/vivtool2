@@ -237,7 +237,7 @@ static void SetMainTab(HWND hDlg, int topTab, int lowerTab)
         IDC_ADD_INSTALL, IDC_SET_DEFAULT
     };
     const int launchControls[] = {
-        IDC_OPTIONS_LABEL, IDC_NO_LOG, IDC_NO_JOURNAL, IDC_EXTRA_ARGS
+        IDC_OPTIONS_LABEL, IDC_NO_LOG, IDC_NO_JOURNAL, IDC_ADDITIONAL_LABEL, IDC_EXTRA_ARGS
     };
     const int diagnosticControls[] = {
         IDC_REGISTER_XPR, IDC_DIAGNOSTIC_LABEL, IDC_VIEW_LOG,
@@ -400,11 +400,27 @@ INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
         SetWindowTextW(GetDlgItem(hDlg, IDC_LOG_PATH), GetLogFilePath().c_str());
         SetWindowTextW(GetDlgItem(hDlg, IDC_CONFIG_PATH), GetSettingsFilePath().c_str());
         SetWindowTextW(GetDlgItem(hDlg, IDC_HELP_TEXT),
-                       L"vivlauncher\r\n\r\n"
-                       L"Select a project and Vivado version, then click Open project.\r\n"
-                       L"Bind project remembers the selected Vivado version.\r\n"
-                       L"Double-clicking an associated .xpr file opens this window.\r\n\r\n"
-                       L"Command line:\r\nvivlauncher.exe project.xpr\r\nvivlauncher.exe --list");
+                       L"vivlauncher help\r\n\r\n"
+                       L"Projects\r\n"
+                       L"Select an .xpr file or choose one from Recent projects.\r\n"
+                       L"Select a Vivado installation in the lower Vivado tab, then click Open project.\r\n"
+                       L"Bind project stores the selected version for this project only.\r\n"
+                       L"Double-click a recent project to open it immediately.\r\n\r\n"
+                       L"Vivado\r\n"
+                       L"The launcher scans standard Xilinx and AMDDesignTools locations.\r\n"
+                       L"Use Add path for a custom Vivado root or its bin folder.\r\n"
+                       L"Set default selects the version used when no project binding exists.\r\n\r\n"
+                       L"Launch\r\n"
+                       L"No log and No journal add -nolog and -nojournal.\r\n"
+                       L"Additional arguments are appended to the Vivado command line.\r\n"
+                       L"Settings are saved under the vivlauncher AppData folder.\r\n\r\n"
+                       L"Diagnosis\r\n"
+                       L"View log opens the latest launch record. The log includes paths, arguments,\r\n"
+                       L"working directory, result, and Windows error code when startup fails.\r\n\r\n"
+                       L"Command line\r\n"
+                       L"vivlauncher.exe project.xpr\r\n"
+                       L"vivlauncher.exe --list\r\n"
+                       L"vivlauncher.exe --add C:\\Vivado\\2025.2\\Vivado");
         PopulateMainInstallList(hDlg);
         PopulateRecentList(hDlg);
         SetMainTab(hDlg, 0, 0);
