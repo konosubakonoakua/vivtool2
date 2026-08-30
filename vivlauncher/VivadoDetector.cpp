@@ -4,6 +4,7 @@
 #include <fstream>
 #include <shlobj.h>
 #include <shellapi.h>
+#include <cstdint>
 
 namespace fs = std::filesystem;
 
@@ -23,6 +24,22 @@ static std::wstring GetSettingsPath()
     if (configPath.empty())
         return {};
     return (fs::path(configPath).parent_path() / L"settings.ini").native();
+}
+
+static std::wstring ProjectSettingsKey(const std::wstring& path)
+{
+    // INI keys cannot safely contain a Windows path, so use a stable FNV-1a key.
+    uint64_t hash = 14695981039346656037ull;
+    for (wchar_t c : path)
+    {
+        wchar_t normalized = (wchar_t)towlower(c);
+        hash ^= (uint64_t)normalized;
+        hash *= 1099511628211ull;
+    }
+
+    wchar_t key[32];
+    swprintf_s(key, L"project_%016llX", (unsigned long long)hash);
+    return key;
 }
 
 static std::vector<std::wstring> LoadCustomPaths()
@@ -392,6 +409,27 @@ void RememberRecentProject(const std::wstring& path, const std::wstring& version
             WritePrivateProfileStringW(L"recent_projects", key, nullptr, settingsPath.c_str());
         }
     }
+}
+
+std::wstring LoadProjectVersion(const std::wstring& path)
+{
+    wchar_t value[64] = {};
+    auto settingsPath = GetSettingsPath();
+    std::wstring absolutePath = GetAbsolutePath(path);
+    GetPrivateProfileStringW(L"project_versions", ProjectSettingsKey(absolutePath).c_str(), L"",
+                             value, ARRAYSIZE(value), settingsPath.c_str());
+    return value;
+}
+
+bool SaveProjectVersion(const std::wstring& path, const std::wstring& version)
+{
+    auto settingsPath = GetSettingsPath();
+    if (settingsPath.empty())
+        return false;
+    fs::create_directories(fs::path(settingsPath).parent_path());
+    std::wstring absolutePath = GetAbsolutePath(path);
+    return WritePrivateProfileStringW(L"project_versions", ProjectSettingsKey(absolutePath).c_str(),
+                                      version.c_str(), settingsPath.c_str()) != FALSE;
 }
 
 bool RegisterXprFileAssociation()

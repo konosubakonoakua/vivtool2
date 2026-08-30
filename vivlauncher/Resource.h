@@ -31,6 +31,7 @@
 #define IDC_REGISTER_XPR               137
 #define IDC_OPEN_PROJECT               138
 #define IDC_ADD_INSTALL                139
+#define IDC_BIND_PROJECT               140
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED

@@ -229,6 +229,11 @@ static void PopulateMainInstallList(HWND hDlg)
     HWND hList = GetDlgItem(hDlg, IDC_INSTALL_LIST);
     SendMessageW(hList, LB_RESETCONTENT, 0, 0);
     std::wstring defaultVersion = LoadDefaultVersion();
+    wchar_t projectPath[32768] = {};
+    GetWindowTextW(GetDlgItem(hDlg, IDC_PROJECT_PATH), projectPath, ARRAYSIZE(projectPath));
+    std::wstring boundVersion = LoadProjectVersion(projectPath);
+    if (!boundVersion.empty())
+        defaultVersion = boundVersion;
     int defaultIndex = -1;
 
     for (size_t i = 0; i < g_mainInstalls.size(); ++i)
@@ -292,6 +297,15 @@ static bool OpenMainProject(HWND hDlg)
         return false;
 
     const auto& install = g_mainInstalls[index];
+    std::wstring boundVersion = LoadProjectVersion(projectPath);
+    if (!boundVersion.empty() && _wcsicmp(boundVersion.c_str(), install.version.c_str()) != 0)
+    {
+        std::wstring message = L"This project is bound to Vivado " + boundVersion +
+                               L", but Vivado " + install.version + L" is selected.\n\nContinue anyway?";
+        if (MessageBoxW(hDlg, message.c_str(), L"Vivado version mismatch",
+                        MB_YESNO | MB_ICONWARNING) != IDYES)
+            return false;
+    }
     RememberRecentProject(projectPath, install.version);
     if (!LaunchVivado(install.exePath.c_str(), projectPath.c_str()))
     {
@@ -329,7 +343,10 @@ INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
             ofn.lpstrFile = path;
             ofn.nMaxFile = ARRAYSIZE(path);
             if (GetOpenFileNameW(&ofn))
+            {
                 SetProjectPath(hDlg, path);
+                PopulateMainInstallList(hDlg);
+            }
             return TRUE;
         }
         if (id == IDC_RECENT_PROJECTS && HIWORD(wParam) == CBN_SELCHANGE)
@@ -339,7 +356,10 @@ INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
             {
                 int index = (int)SendMessageW((HWND)lParam, CB_GETITEMDATA, item, 0);
                 if (index >= 0 && index < (int)g_mainRecent.size())
+                {
                     SetProjectPath(hDlg, g_mainRecent[index].path);
+                    PopulateMainInstallList(hDlg);
+                }
             }
             return TRUE;
         }
@@ -362,6 +382,28 @@ INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
                     MessageBoxW(hDlg, L"The selected Vivado version is now the default.",
                                 L"Vivado Launcher", MB_OK | MB_ICONINFORMATION);
                 }
+            }
+            return TRUE;
+        }
+        if (id == IDC_BIND_PROJECT)
+        {
+            wchar_t path[32768] = {};
+            GetWindowTextW(GetDlgItem(hDlg, IDC_PROJECT_PATH), path, ARRAYSIZE(path));
+            std::wstring projectPath = GetAbsolutePath(path);
+            HWND hList = GetDlgItem(hDlg, IDC_INSTALL_LIST);
+            int item = (int)SendMessageW(hList, LB_GETCURSEL, 0, 0);
+            if (projectPath.empty() || !fs::exists(projectPath) || item < 0)
+            {
+                MessageBoxW(hDlg, L"Select an existing project and Vivado version first.",
+                            L"Vivado Launcher", MB_OK | MB_ICONWARNING);
+                return TRUE;
+            }
+            int index = (int)SendMessageW(hList, LB_GETITEMDATA, item, 0);
+            if (index >= 0 && index < (int)g_mainInstalls.size() &&
+                SaveProjectVersion(projectPath, g_mainInstalls[index].version))
+            {
+                MessageBoxW(hDlg, L"This project will use the selected Vivado version next time.",
+                            L"Vivado Launcher", MB_OK | MB_ICONINFORMATION);
             }
             return TRUE;
         }
