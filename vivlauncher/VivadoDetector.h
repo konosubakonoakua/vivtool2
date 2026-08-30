@@ -23,4 +23,5 @@ struct CliOptions
 CliOptions ParseCliArgs(int argc, wchar_t* argv[]);
 std::vector<VivadoInstall> DetectVivadoInstallations();
 std::vector<VivadoInstall> AddCustomPath(const wchar_t* path);
+std::wstring GetAbsolutePath(const std::wstring& path);
 bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath);

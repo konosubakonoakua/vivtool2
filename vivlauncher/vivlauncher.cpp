@@ -146,9 +146,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         return 0;
     }
 
-    wchar_t fullPath[MAX_PATH];
-    if (GetFullPathNameW(xprPath.c_str(), MAX_PATH, fullPath, nullptr) > 0)
-        xprPath = fullPath;
+    // Always pass Vivado the canonical absolute project path, including long paths.
+    xprPath = GetAbsolutePath(xprPath);
 
     auto installs = DetectVivadoInstallations();
 

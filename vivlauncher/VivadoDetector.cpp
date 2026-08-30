@@ -57,6 +57,16 @@ static fs::path FindVivadoExe(const fs::path& basePath)
     return {};
 }
 
+static VivadoInstall MakeInstall(const std::wstring& version, const fs::path& installPath,
+                                 const fs::path& exePath)
+{
+    VivadoInstall inst;
+    inst.version = version;
+    inst.path = installPath.native();
+    inst.exePath = exePath.native();
+    return inst;
+}
+
 static std::vector<VivadoInstall> ScanOldStructure(const fs::path& basePath)
 {
     std::vector<VivadoInstall> installs;
@@ -87,11 +97,7 @@ static std::vector<VivadoInstall> ScanOldStructure(const fs::path& basePath)
             continue;
         }
 
-        VivadoInstall inst;
-        inst.version = version;
-        inst.path = entry.path().native();
-        inst.exePath = exePath.native();
-        installs.push_back(inst);
+        installs.push_back(MakeInstall(version, entry.path(), exePath));
     }
 
     return installs;
@@ -128,11 +134,7 @@ static std::vector<VivadoInstall> ScanNewStructure(const fs::path& basePath)
             continue;
         }
 
-        VivadoInstall inst;
-        inst.version = version;
-        inst.path = vivadoSubdir.native();
-        inst.exePath = exePath.native();
-        installs.push_back(inst);
+        installs.push_back(MakeInstall(version, vivadoSubdir, exePath));
     }
 
     return installs;
@@ -155,18 +157,16 @@ static std::vector<VivadoInstall> ScanAMDStructure(const fs::path& basePath)
         }
 
         std::wstring version = entry.path().filename().native();
-        auto exePath = FindVivadoExe(entry.path());
+        // AMD's current installer uses AMDDesignTools\\<version>\\Vivado.
+        fs::path installPath = entry.path() / L"Vivado";
+        auto exePath = FindVivadoExe(installPath);
 
         if (exePath.empty())
         {
             continue;
         }
 
-        VivadoInstall inst;
-        inst.version = version;
-        inst.path = entry.path().native();
-        inst.exePath = exePath.native();
-        installs.push_back(inst);
+        installs.push_back(MakeInstall(version, installPath, exePath));
     }
 
     return installs;
@@ -316,6 +316,27 @@ static std::wstring QuoteIfNeeded(const wchar_t* path)
     return path;
 }
 
+std::wstring GetAbsolutePath(const std::wstring& path)
+{
+    if (path.empty())
+        return {};
+
+    DWORD capacity = MAX_PATH;
+    for (;;)
+    {
+        std::wstring result(capacity, L'\0');
+        DWORD length = GetFullPathNameW(path.c_str(), capacity, result.data(), nullptr);
+        if (length == 0)
+            return path;
+        if (length < capacity - 1)
+        {
+            result.resize(length);
+            return result;
+        }
+        capacity = length + 1;
+    }
+}
+
 bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath)
 {
     std::wstring exeToLaunch = vivadoExePath;
@@ -357,6 +378,10 @@ bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath)
 
     PROCESS_INFORMATION pi = {};
 
+    std::wstring workingDirectory;
+    if (xprFilePath && *xprFilePath)
+        workingDirectory = fs::path(xprFilePath).parent_path().native();
+
     BOOL ok = CreateProcessW(
         exeToLaunch.c_str(),            // lpApplicationName — direct file path, Unicode-safe, no parsing
         cmdLine.data(),                 // lpCommandLine — argv for child process
@@ -364,7 +389,7 @@ bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath)
         FALSE,
         0,
         nullptr,
-        nullptr,
+        workingDirectory.empty() ? nullptr : workingDirectory.c_str(),
         &si, &pi);
 
     if (ok)
