@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <shlobj.h>
+#include <shellapi.h>
 
 namespace fs = std::filesystem;
 
@@ -14,6 +15,14 @@ static std::wstring GetConfigPath()
         return std::wstring(appData) + L"\\vivlauncher\\paths.json";
     }
     return {};
+}
+
+static std::wstring GetSettingsPath()
+{
+    auto configPath = GetConfigPath();
+    if (configPath.empty())
+        return {};
+    return (fs::path(configPath).parent_path() / L"settings.ini").native();
 }
 
 static std::vector<std::wstring> LoadCustomPaths()
@@ -307,6 +316,111 @@ std::vector<VivadoInstall> AddCustomPath(const wchar_t* path)
     }
 
     return DetectVivadoInstallations();
+}
+
+std::wstring LoadDefaultVersion()
+{
+    wchar_t value[64] = {};
+    auto settingsPath = GetSettingsPath();
+    GetPrivateProfileStringW(L"vivlauncher", L"default_version", L"", value,
+                             ARRAYSIZE(value), settingsPath.c_str());
+    return value;
+}
+
+bool SaveDefaultVersion(const std::wstring& version)
+{
+    auto settingsPath = GetSettingsPath();
+    if (settingsPath.empty())
+        return false;
+    fs::create_directories(fs::path(settingsPath).parent_path());
+    return WritePrivateProfileStringW(L"vivlauncher", L"default_version", version.c_str(),
+                                      settingsPath.c_str()) != FALSE;
+}
+
+std::vector<RecentProject> LoadRecentProjects()
+{
+    std::vector<RecentProject> projects;
+    auto settingsPath = GetSettingsPath();
+    if (settingsPath.empty())
+        return projects;
+
+    for (int i = 0; i < 20; ++i)
+    {
+        wchar_t key[32], value[32768] = {};
+        swprintf_s(key, L"recent_%d", i);
+        GetPrivateProfileStringW(L"recent_projects", key, L"", value,
+                                 ARRAYSIZE(value), settingsPath.c_str());
+        if (!value[0])
+            continue;
+
+        std::wstring item = value;
+        size_t separator = item.find(L'|');
+        RecentProject project;
+        project.version = separator == std::wstring::npos ? L"" : item.substr(0, separator);
+        project.path = separator == std::wstring::npos ? item : item.substr(separator + 1);
+        if (!project.path.empty() && fs::exists(project.path))
+            projects.push_back(std::move(project));
+    }
+    return projects;
+}
+
+void RememberRecentProject(const std::wstring& path, const std::wstring& version)
+{
+    auto settingsPath = GetSettingsPath();
+    if (settingsPath.empty())
+        return;
+    fs::create_directories(fs::path(settingsPath).parent_path());
+
+    std::vector<RecentProject> projects{{path, version}};
+    for (const auto& project : LoadRecentProjects())
+    {
+        if (_wcsicmp(project.path.c_str(), path.c_str()) != 0 && projects.size() < 20)
+            projects.push_back(project);
+    }
+
+    for (int i = 0; i < 20; ++i)
+    {
+        wchar_t key[32];
+        swprintf_s(key, L"recent_%d", i);
+        if (i < (int)projects.size())
+        {
+            std::wstring value = projects[i].version + L"|" + projects[i].path;
+            WritePrivateProfileStringW(L"recent_projects", key, value.c_str(), settingsPath.c_str());
+        }
+        else
+        {
+            WritePrivateProfileStringW(L"recent_projects", key, nullptr, settingsPath.c_str());
+        }
+    }
+}
+
+bool RegisterXprFileAssociation()
+{
+    wchar_t modulePath[MAX_PATH] = {};
+    DWORD length = GetModuleFileNameW(nullptr, modulePath, ARRAYSIZE(modulePath));
+    if (length == 0 || length >= ARRAYSIZE(modulePath))
+        return false;
+
+    HKEY key = nullptr;
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Classes\\.xpr", 0, nullptr,
+                        REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
+        return false;
+    const wchar_t* progId = L"VivLauncher.Project";
+    RegSetValueExW(key, nullptr, 0, REG_SZ, (const BYTE*)progId,
+                   (DWORD)((wcslen(progId) + 1) * sizeof(wchar_t)));
+    RegCloseKey(key);
+
+    if (RegCreateKeyExW(HKEY_CURRENT_USER,
+                        L"Software\\Classes\\VivLauncher.Project\\shell\\open\\command",
+                        0, nullptr, REG_OPTION_NON_VOLATILE, KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
+        return false;
+    std::wstring command = L"\"" + std::wstring(modulePath) + L"\" \"%1\"";
+    RegSetValueExW(key, nullptr, 0, REG_SZ, (const BYTE*)command.c_str(),
+                   (DWORD)((command.size() + 1) * sizeof(wchar_t)));
+    RegCloseKey(key);
+
+    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+    return true;
 }
 
 static std::wstring QuoteIfNeeded(const wchar_t* path)

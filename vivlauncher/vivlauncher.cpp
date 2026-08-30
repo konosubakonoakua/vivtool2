@@ -45,25 +45,7 @@ static void PrintVersionList(const std::vector<VivadoInstall>& installs)
 
 static std::wstring GetXprPathFromArgs(const CliOptions& opts)
 {
-    if (!opts.xprFile.empty())
-    {
-        return opts.xprFile;
-    }
-
-    OPENFILENAMEW ofn = {};
-    wchar_t filePath[MAX_PATH] = {};
-    ofn.lStructSize = sizeof(ofn);
-    ofn.lpstrFilter = L"Vivado Project (*.xpr)\0*.xpr\0All Files (*.*)\0*.*\0\0";
-    ofn.lpstrFile = filePath;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrTitle = L"Open Vivado Project";
-
-    if (GetOpenFileNameW(&ofn))
-    {
-        return filePath;
-    }
-
-    return {};
+    return opts.xprFile;
 }
 
 static int OpenProjectWithSelector(const std::wstring& xprPath, const std::vector<VivadoInstall>& installs)
@@ -141,41 +123,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
     std::wstring xprPath = GetXprPathFromArgs(opts);
-    if (xprPath.empty())
-    {
-        return 0;
-    }
+    if (!xprPath.empty())
+        xprPath = GetAbsolutePath(xprPath);
 
-    // Always pass Vivado the canonical absolute project path, including long paths.
-    xprPath = GetAbsolutePath(xprPath);
-
-    auto installs = DetectVivadoInstallations();
-
-    if (installs.empty())
-    {
-        int result = (int)DialogBoxW(hInst, MAKEINTRESOURCE(IDD_ADD_PATH), nullptr, AddPathDialogProc);
-        if (result > 0)
-        {
-            installs = DetectVivadoInstallations();
-        }
-
-        if (installs.empty())
-        {
-            MessageBoxW(nullptr, L"No Vivado installation found.\nPlease add installation path manually.",
-                       L"Error", MB_ICONERROR | MB_OK);
-            return 1;
-        }
-    }
-
-    if (installs.size() == 1)
-    {
-        LaunchVivado(installs[0].exePath.c_str(), xprPath.c_str());
-    }
-    else
-    {
-        OpenProjectWithSelector(xprPath, installs);
-    }
-
+    DialogBoxParamW(hInst, MAKEINTRESOURCE(IDD_MAIN_DIALOG), nullptr,
+                    MainDialogProc, (LPARAM)xprPath.c_str());
     return 0;
 }
 

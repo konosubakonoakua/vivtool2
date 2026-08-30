@@ -2,6 +2,9 @@
 #include "vivlauncher.h"
 #include <string>
 #include <vector>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 extern HINSTANCE hInst;
 static std::vector<VivadoInstall> g_installs;
@@ -216,4 +219,181 @@ INT_PTR CALLBACK AddPathDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
     }
 
     return (INT_PTR)FALSE;
+}
+
+static std::vector<VivadoInstall> g_mainInstalls;
+static std::vector<RecentProject> g_mainRecent;
+
+static void PopulateMainInstallList(HWND hDlg)
+{
+    HWND hList = GetDlgItem(hDlg, IDC_INSTALL_LIST);
+    SendMessageW(hList, LB_RESETCONTENT, 0, 0);
+    std::wstring defaultVersion = LoadDefaultVersion();
+    int defaultIndex = -1;
+
+    for (size_t i = 0; i < g_mainInstalls.size(); ++i)
+    {
+        const auto& install = g_mainInstalls[i];
+        std::wstring text = install.version + L"    " + install.path;
+        int item = (int)SendMessageW(hList, LB_ADDSTRING, 0, (LPARAM)text.c_str());
+        SendMessageW(hList, LB_SETITEMDATA, item, (LPARAM)i);
+        if (_wcsicmp(install.version.c_str(), defaultVersion.c_str()) == 0)
+            defaultIndex = item;
+    }
+
+    if (defaultIndex >= 0)
+        SendMessageW(hList, LB_SETCURSEL, defaultIndex, 0);
+    else if (!g_mainInstalls.empty())
+        SendMessageW(hList, LB_SETCURSEL, 0, 0);
+}
+
+static void PopulateRecentList(HWND hDlg)
+{
+    HWND hCombo = GetDlgItem(hDlg, IDC_RECENT_PROJECTS);
+    SendMessageW(hCombo, CB_RESETCONTENT, 0, 0);
+    g_mainRecent = LoadRecentProjects();
+    for (size_t i = 0; i < g_mainRecent.size(); ++i)
+    {
+        std::wstring display = fs::path(g_mainRecent[i].path).filename().native();
+        display += L"  (" + g_mainRecent[i].path + L")";
+        int item = (int)SendMessageW(hCombo, CB_ADDSTRING, 0, (LPARAM)display.c_str());
+        SendMessageW(hCombo, CB_SETITEMDATA, item, (LPARAM)i);
+    }
+}
+
+static void SetProjectPath(HWND hDlg, const std::wstring& path)
+{
+    SetWindowTextW(GetDlgItem(hDlg, IDC_PROJECT_PATH), path.c_str());
+}
+
+static bool OpenMainProject(HWND hDlg)
+{
+    wchar_t path[32768] = {};
+    GetWindowTextW(GetDlgItem(hDlg, IDC_PROJECT_PATH), path, ARRAYSIZE(path));
+    std::wstring projectPath = GetAbsolutePath(path);
+    if (projectPath.empty() || !fs::exists(projectPath))
+    {
+        MessageBoxW(hDlg, L"Please select an existing Vivado .xpr project.", L"Project not found",
+                    MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
+    HWND hList = GetDlgItem(hDlg, IDC_INSTALL_LIST);
+    int selected = (int)SendMessageW(hList, LB_GETCURSEL, 0, 0);
+    if (selected < 0)
+    {
+        MessageBoxW(hDlg, L"No valid Vivado installation is available.", L"Vivado Launcher",
+                    MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    int index = (int)SendMessageW(hList, LB_GETITEMDATA, selected, 0);
+    if (index < 0 || index >= (int)g_mainInstalls.size())
+        return false;
+
+    const auto& install = g_mainInstalls[index];
+    RememberRecentProject(projectPath, install.version);
+    if (!LaunchVivado(install.exePath.c_str(), projectPath.c_str()))
+    {
+        MessageBoxW(hDlg, L"Vivado could not be started. Check the installation path.",
+                    L"Launch failed", MB_OK | MB_ICONERROR);
+        return false;
+    }
+    EndDialog(hDlg, IDOK);
+    return true;
+}
+
+INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    switch (message)
+    {
+    case WM_INITDIALOG:
+    {
+        const wchar_t* initialPath = (const wchar_t*)lParam;
+        if (initialPath && *initialPath)
+            SetProjectPath(hDlg, initialPath);
+        g_mainInstalls = DetectVivadoInstallations();
+        PopulateMainInstallList(hDlg);
+        PopulateRecentList(hDlg);
+        return TRUE;
+    }
+    case WM_COMMAND:
+    {
+        int id = LOWORD(wParam);
+        if (id == IDC_BROWSE_PROJECT)
+        {
+            OPENFILENAMEW ofn = {};
+            wchar_t path[MAX_PATH] = {};
+            ofn.lStructSize = sizeof(ofn);
+            ofn.lpstrFilter = L"Vivado Project (*.xpr)\0*.xpr\0All Files (*.*)\0*.*\0\0";
+            ofn.lpstrFile = path;
+            ofn.nMaxFile = ARRAYSIZE(path);
+            if (GetOpenFileNameW(&ofn))
+                SetProjectPath(hDlg, path);
+            return TRUE;
+        }
+        if (id == IDC_RECENT_PROJECTS && HIWORD(wParam) == CBN_SELCHANGE)
+        {
+            int item = (int)SendMessageW((HWND)lParam, CB_GETCURSEL, 0, 0);
+            if (item >= 0)
+            {
+                int index = (int)SendMessageW((HWND)lParam, CB_GETITEMDATA, item, 0);
+                if (index >= 0 && index < (int)g_mainRecent.size())
+                    SetProjectPath(hDlg, g_mainRecent[index].path);
+            }
+            return TRUE;
+        }
+        if (id == IDC_REFRESH_INSTALLS)
+        {
+            g_mainInstalls = DetectVivadoInstallations();
+            PopulateMainInstallList(hDlg);
+            return TRUE;
+        }
+        if (id == IDC_SET_DEFAULT)
+        {
+            HWND hList = GetDlgItem(hDlg, IDC_INSTALL_LIST);
+            int item = (int)SendMessageW(hList, LB_GETCURSEL, 0, 0);
+            if (item >= 0)
+            {
+                int index = (int)SendMessageW(hList, LB_GETITEMDATA, item, 0);
+                if (index >= 0 && index < (int)g_mainInstalls.size())
+                {
+                    SaveDefaultVersion(g_mainInstalls[index].version);
+                    MessageBoxW(hDlg, L"The selected Vivado version is now the default.",
+                                L"Vivado Launcher", MB_OK | MB_ICONINFORMATION);
+                }
+            }
+            return TRUE;
+        }
+        if (id == IDC_REGISTER_XPR)
+        {
+            bool registered = RegisterXprFileAssociation();
+            MessageBoxW(hDlg, registered ? L".xpr files are now associated with vivlauncher."
+                                         : L"Could not register the .xpr file association.",
+                        L"Vivado Launcher", MB_OK | (registered ? MB_ICONINFORMATION : MB_ICONERROR));
+            return TRUE;
+        }
+        if (id == IDC_ADD_INSTALL)
+        {
+            if (DialogBoxW(hInst, MAKEINTRESOURCE(IDD_ADD_PATH), hDlg, AddPathDialogProc) > 0)
+            {
+                g_mainInstalls = DetectVivadoInstallations();
+                PopulateMainInstallList(hDlg);
+            }
+            return TRUE;
+        }
+        if (id == IDC_OPEN_PROJECT || (id == IDOK && HIWORD(wParam) == BN_CLICKED))
+        {
+            OpenMainProject(hDlg);
+            return TRUE;
+        }
+        if (id == IDCANCEL)
+        {
+            EndDialog(hDlg, IDCANCEL);
+            return TRUE;
+        }
+        break;
+    }
+    }
+    return FALSE;
 }

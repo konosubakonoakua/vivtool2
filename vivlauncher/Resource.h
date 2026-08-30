@@ -21,6 +21,16 @@
 #define IDC_PATH_EDIT				121
 #define IDC_BROWSE_BUTTON			122
 #define IDC_STATIC				-1
+#define IDD_MAIN_DIALOG                130
+#define IDC_PROJECT_PATH               131
+#define IDC_BROWSE_PROJECT             132
+#define IDC_RECENT_PROJECTS            133
+#define IDC_INSTALL_LIST               134
+#define IDC_REFRESH_INSTALLS           135
+#define IDC_SET_DEFAULT                136
+#define IDC_REGISTER_XPR               137
+#define IDC_OPEN_PROJECT               138
+#define IDC_ADD_INSTALL                139
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED
