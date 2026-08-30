@@ -26,6 +26,25 @@ static std::wstring GetSettingsPath()
     return (fs::path(configPath).parent_path() / L"settings.ini").native();
 }
 
+static std::wstring GetLogPath()
+{
+    wchar_t localAppData[MAX_PATH] = {};
+    if (!SHGetSpecialFolderPathW(nullptr, localAppData, CSIDL_LOCAL_APPDATA, TRUE))
+        return {};
+    return (fs::path(localAppData) / L"vivlauncher" / L"vivlauncher.log").native();
+}
+
+static void AppendLaunchLog(const std::wstring& message)
+{
+    auto logPath = GetLogPath();
+    if (logPath.empty())
+        return;
+    fs::create_directories(fs::path(logPath).parent_path());
+    std::wofstream log(logPath, std::ios::app);
+    if (log.is_open())
+        log << message << L"\n";
+}
+
 static std::wstring ProjectSettingsKey(const std::wstring& path)
 {
     // INI keys cannot safely contain a Windows path, so use a stable FNV-1a key.
@@ -461,6 +480,35 @@ bool RegisterXprFileAssociation()
     return true;
 }
 
+LaunchSettings LoadLaunchSettings()
+{
+    LaunchSettings settings;
+    auto settingsPath = GetSettingsPath();
+    wchar_t value[32768] = {};
+    GetPrivateProfileStringW(L"launch", L"no_log", L"0", value, ARRAYSIZE(value), settingsPath.c_str());
+    settings.noLog = wcscmp(value, L"1") == 0;
+    GetPrivateProfileStringW(L"launch", L"no_journal", L"0", value, ARRAYSIZE(value), settingsPath.c_str());
+    settings.noJournal = wcscmp(value, L"1") == 0;
+    GetPrivateProfileStringW(L"launch", L"extra_args", L"", value, ARRAYSIZE(value), settingsPath.c_str());
+    settings.extraArgs = value;
+    return settings;
+}
+
+bool SaveLaunchSettings(const LaunchSettings& settings)
+{
+    auto settingsPath = GetSettingsPath();
+    if (settingsPath.empty())
+        return false;
+    fs::create_directories(fs::path(settingsPath).parent_path());
+    bool ok = WritePrivateProfileStringW(L"launch", L"no_log", settings.noLog ? L"1" : L"0",
+                                         settingsPath.c_str()) != FALSE;
+    ok = WritePrivateProfileStringW(L"launch", L"no_journal", settings.noJournal ? L"1" : L"0",
+                                    settingsPath.c_str()) != FALSE && ok;
+    ok = WritePrivateProfileStringW(L"launch", L"extra_args", settings.extraArgs.c_str(),
+                                    settingsPath.c_str()) != FALSE && ok;
+    return ok;
+}
+
 static std::wstring QuoteIfNeeded(const wchar_t* path)
 {
     if (wcschr(path, L' ') != nullptr)
@@ -489,7 +537,8 @@ std::wstring GetAbsolutePath(const std::wstring& path)
     }
 }
 
-bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath)
+bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath,
+                  const LaunchSettings& settings)
 {
     std::wstring exeToLaunch = vivadoExePath;
     std::wstring cmdLine;
@@ -518,6 +567,16 @@ bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath)
         cmdLine += QuoteIfNeeded(vivadoExePath);
     }
 
+    if (settings.noLog)
+        cmdLine += L" -nolog";
+    if (settings.noJournal)
+        cmdLine += L" -nojournal";
+    if (!settings.extraArgs.empty())
+    {
+        cmdLine += L" ";
+        cmdLine += settings.extraArgs;
+    }
+
     if (xprFilePath && *xprFilePath)
     {
         cmdLine += L" ";
@@ -543,6 +602,15 @@ bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath)
         nullptr,
         workingDirectory.empty() ? nullptr : workingDirectory.c_str(),
         &si, &pi);
+
+    std::wstring logMessage = L"Launch " + std::wstring(ok ? L"succeeded" : L"failed") + L"\n"
+        L"  Vivado: " + std::wstring(vivadoExePath) + L"\n"
+        L"  Project: " + std::wstring(xprFilePath ? xprFilePath : L"") + L"\n"
+        L"  Working directory: " + workingDirectory + L"\n"
+        L"  Arguments: " + cmdLine;
+    if (!ok)
+        logMessage += L"\n  Error: " + std::to_wstring(GetLastError());
+    AppendLaunchLog(logMessage);
 
     if (ok)
     {

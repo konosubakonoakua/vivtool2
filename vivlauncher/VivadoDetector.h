@@ -17,6 +17,13 @@ struct RecentProject
     std::wstring version;
 };
 
+struct LaunchSettings
+{
+    bool noLog = false;
+    bool noJournal = false;
+    std::wstring extraArgs;
+};
+
 struct CliOptions
 {
     bool listVersions = false;
@@ -37,4 +44,7 @@ void RememberRecentProject(const std::wstring& path, const std::wstring& version
 std::wstring LoadProjectVersion(const std::wstring& path);
 bool SaveProjectVersion(const std::wstring& path, const std::wstring& version);
 bool RegisterXprFileAssociation();
-bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath);
+LaunchSettings LoadLaunchSettings();
+bool SaveLaunchSettings(const LaunchSettings& settings);
+bool LaunchVivado(const wchar_t* vivadoExePath, const wchar_t* xprFilePath,
+                  const LaunchSettings& settings = {});

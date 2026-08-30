@@ -32,6 +32,9 @@
 #define IDC_OPEN_PROJECT               138
 #define IDC_ADD_INSTALL                139
 #define IDC_BIND_PROJECT               140
+#define IDC_NO_LOG                     141
+#define IDC_NO_JOURNAL                 142
+#define IDC_EXTRA_ARGS                 143
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED

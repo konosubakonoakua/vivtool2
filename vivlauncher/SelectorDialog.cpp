@@ -223,6 +223,7 @@ INT_PTR CALLBACK AddPathDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
 static std::vector<VivadoInstall> g_mainInstalls;
 static std::vector<RecentProject> g_mainRecent;
+static LaunchSettings g_launchSettings;
 
 static void PopulateMainInstallList(HWND hDlg)
 {
@@ -307,7 +308,13 @@ static bool OpenMainProject(HWND hDlg)
             return false;
     }
     RememberRecentProject(projectPath, install.version);
-    if (!LaunchVivado(install.exePath.c_str(), projectPath.c_str()))
+    g_launchSettings.noLog = IsDlgButtonChecked(hDlg, IDC_NO_LOG) == BST_CHECKED;
+    g_launchSettings.noJournal = IsDlgButtonChecked(hDlg, IDC_NO_JOURNAL) == BST_CHECKED;
+    wchar_t extraArgs[32768] = {};
+    GetWindowTextW(GetDlgItem(hDlg, IDC_EXTRA_ARGS), extraArgs, ARRAYSIZE(extraArgs));
+    g_launchSettings.extraArgs = extraArgs;
+    SaveLaunchSettings(g_launchSettings);
+    if (!LaunchVivado(install.exePath.c_str(), projectPath.c_str(), g_launchSettings))
     {
         MessageBoxW(hDlg, L"Vivado could not be started. Check the installation path.",
                     L"Launch failed", MB_OK | MB_ICONERROR);
@@ -327,6 +334,10 @@ INT_PTR CALLBACK MainDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
         if (initialPath && *initialPath)
             SetProjectPath(hDlg, initialPath);
         g_mainInstalls = DetectVivadoInstallations();
+        g_launchSettings = LoadLaunchSettings();
+        CheckDlgButton(hDlg, IDC_NO_LOG, g_launchSettings.noLog ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(hDlg, IDC_NO_JOURNAL, g_launchSettings.noJournal ? BST_CHECKED : BST_UNCHECKED);
+        SetWindowTextW(GetDlgItem(hDlg, IDC_EXTRA_ARGS), g_launchSettings.extraArgs.c_str());
         PopulateMainInstallList(hDlg);
         PopulateRecentList(hDlg);
         return TRUE;
